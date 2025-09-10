@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Root stack for ECS Fargate with Blue/Green Deployment (Nested Stacks)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: ecs-lab
+  GitHubOwner:
+    Type: String
+    Description: GitHub owner/org name
+  GitHubRepo:
+    Type: String
+    Description: GitHub repository name
+  GitHubBranch:
+    Type: String
+    Default: main
+  GitHubConnectionArn:
+    Type: String
+    Description: CodeStar Connection ARN for GitHub
+  ContainerPort:
+    Type: Number
+    Default: 80
+    Description: Port your container listens on
+
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/network.yml
+      Parameters:
+        ProjectName: !Ref ProjectName
+
+  ECRStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/ecr.yml
+      Parameters:
+        ProjectName: !Ref ProjectName
+
+  ALBStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/alb.yml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        PublicSubnet1: !GetAtt NetworkStack.Outputs.PublicSubnet1
+        PublicSubnet2: !GetAtt NetworkStack.Outputs.PublicSubnet2
+
+  ECSStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/ecs.yml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2
+        ALBSecurityGroupId: !GetAtt ALBStack.Outputs.ALBSecurityGroupId
+        TargetGroupBlueArn: !GetAtt ALBStack.Outputs.TargetGroupBlueArn
+        ContainerPort: !Ref ContainerPort
+
+  PipelineStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/pipeline.yml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        GitHubOwner: !Ref GitHubOwner
+        GitHubRepo: !Ref GitHubRepo
+        GitHubBranch: !Ref GitHubBranch
+        GitHubConnectionArn: !Ref GitHubConnectionArn
+        ECRRepositoryName: !GetAtt ECRStack.Outputs.RepositoryName
+        ECRRepositoryUri: !GetAtt ECRStack.Outputs.RepositoryUri
+        ClusterName: !GetAtt ECSStack.Outputs.ClusterName
+        ServiceName: !GetAtt ECSStack.Outputs.ServiceName
+        TargetGroupBlueArn: !GetAtt ALBStack.Outputs.TargetGroupBlueArn
+        TargetGroupGreenArn: !GetAtt ALBStack.Outputs.TargetGroupGreenArn
+        ALBListenerArn: !GetAtt ALBStack.Outputs.ALBListenerArn
+        ContainerName: !GetAtt ECSStack.Outputs.ContainerName
+        ContainerPort: !Ref ContainerPort
+        TaskExecutionRoleArn: !GetAtt ECSStack.Outputs.TaskExecutionRoleArn
+
+Outputs:
+  ALBDNSName:
+    Description: DNS name of the Application Load Balancer
+    Value: !GetAtt ALBStack.Outputs.ALBDNSName
+  ServiceURL:
+    Description: URL to access the service
+    Value: !Sub "http://${ALBStack.Outputs.ALBDNSName}"
+  PipelineName:
+    Description: Name of the CodePipeline
+    Value: !GetAtt PipelineStack.Outputs.PipelineName
+  ECRRepositoryUri:
+    Description: ECR Repository URI
+    Value: !GetAtt ECRStack.Outputs.RepositoryUri

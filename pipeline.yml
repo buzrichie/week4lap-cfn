@@ -1,0 +1,459 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  CodePipeline + CodeBuild + CodeDeploy stack for ECS blue/green.
+  Includes EventBridge rule that triggers a Lambda to start the pipeline on ECR image PUSH.
+
+Parameters:
+  ProjectName:
+    Type: String
+  GitHubOwner:
+    Type: String
+  GitHubRepo:
+    Type: String
+  GitHubBranch:
+    Type: String
+    Default: main
+  GitHubConnectionArn:
+    Type: String
+  EcrRepositoryName:
+    Type: String
+  EcrRepositoryUri:
+    Type: String
+  ClusterName:
+    Type: String
+  ServiceName:
+    Type: String
+  TargetGroupBlueArn:
+    Type: String
+  TargetGroupGreenArn:
+    Type: String
+  ALBListenerArn:
+    Type: String
+  ContainerName:
+    Type: String
+  ContainerPort:
+    Type: Number
+    Default: 80
+  TaskExecutionRoleArn:
+    Type: String
+
+Resources:
+  PipelineArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-pipeline-artifacts-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-pipeline-bucket"
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-pipeline-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: PipelinePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                  - s3:PutObject
+                  - s3:PutObjectAcl
+                Resource:
+                  - !GetAtt PipelineArtifactBucket.Arn
+                  - !Sub "${PipelineArtifactBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - codebuild:BatchGetBuilds
+                  - codebuild:StartBuild
+                  - codedeploy:CreateDeployment
+                  - codedeploy:GetApplication
+                  - codedeploy:GetApplicationRevision
+                  - codedeploy:GetDeployment
+                  - codedeploy:GetDeploymentConfig
+                  - codedeploy:RegisterApplicationRevision
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - iam:PassRole
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - codestar-connections:UseConnection
+                Resource: !Ref GitHubConnectionArn
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-pipeline-role"
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-codebuild-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CodeBuildPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+                  - s3:PutObject
+                Resource:
+                  - !GetAtt PipelineArtifactBucket.Arn
+                  - !Sub "${PipelineArtifactBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:DescribeImages
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}-prepare-taskdef:*"
+              - Effect: Allow
+                Action:
+                  - codepipeline:PutJobSuccessResult
+                  - codepipeline:PutJobFailureResult
+                Resource: "*"
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-codebuild-role"
+
+  PrepareTaskDefBuild:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${ProjectName}-prepare-taskdef"
+      ServiceRole: !GetAtt CodeBuildServiceRole.Arn
+      Artifacts:
+        Type: CODEPIPELINE
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/standard:6.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: ECR_REPO
+            Value: !Ref EcrRepositoryName
+          - Name: ECR_URI
+            Value: !Ref EcrRepositoryUri
+          - Name: CLUSTER_NAME
+            Value: !Ref ClusterName
+          - Name: SERVICE_NAME
+            Value: !Ref ServiceName
+          - Name: CONTAINER_NAME
+            Value: !Ref ContainerName
+          - Name: CONTAINER_PORT
+            Value: !Ref ContainerPort
+          - Name: TASK_EXECUTION_ROLE_ARN
+            Value: !Ref TaskExecutionRoleArn
+          - Name: PROJECT_NAME
+            Value: !Ref ProjectName
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+      TimeoutInMinutes: 10
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            build:
+              commands:
+                - echo "Preparing task definition and appspec"
+                - IMAGE_TAG=$(aws ecr describe-images --repository-name $ECR_REPO --query 'sort_by(imageDetails, &imagePushedAt)[-1].imageTags[0]' --output text)
+                - echo "Using image: $ECR_URI:$IMAGE_TAG"
+                - sed -e "s|<IMAGE_URI>|$ECR_URI:$IMAGE_TAG|g" \
+                       -e "s|<TASK_EXECUTION_ROLE_ARN>|$TASK_EXECUTION_ROLE_ARN|g" \
+                       -e "s|<CONTAINER_NAME>|$CONTAINER_NAME|g" \
+                       -e "s|<CONTAINER_PORT>|$CONTAINER_PORT|g" \
+                       -e "s|<PROJECT_NAME>|$PROJECT_NAME|g" \
+                       taskdef-template.json > taskdef.json
+                
+                - sed -e "s|<CONTAINER_NAME>|$CONTAINER_NAME|g" \
+                       -e "s|<CONTAINER_PORT>|$CONTAINER_PORT|g" \
+                       appspec-template.yaml > appspec.yaml
+                
+                - echo "Generated taskdef.json:"
+                - cat taskdef.json
+                - echo "Generated appspec.yaml:"
+                - cat appspec.yaml
+          artifacts:
+            files:
+              - taskdef.json
+              - appspec.yaml
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-prepare-taskdef"
+
+  CodeDeployApplication:
+    Type: AWS::CodeDeploy::Application
+    Properties:
+      ApplicationName: !Sub "${ProjectName}-codedeploy-app"
+      ComputePlatform: ECS
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-codedeploy-app"
+
+  CodeDeployServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-codedeploy-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codedeploy.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRoleForECS
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-codedeploy-role"
+
+  CodeDeployDeploymentGroup:
+    Type: AWS::CodeDeploy::DeploymentGroup
+    Properties:
+      ApplicationName: !Ref CodeDeployApplication
+      DeploymentGroupName: !Sub "${ProjectName}-dg"
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      DeploymentConfigName: CodeDeployDefault.ECSAllAtOnce
+      DeploymentStyle:
+        DeploymentType: BLUE_GREEN
+        DeploymentOption: WITH_TRAFFIC_CONTROL
+      BlueGreenDeploymentConfiguration:
+        TerminateBlueInstancesOnDeploymentSuccess:
+          Action: TERMINATE
+          TerminationWaitTimeInMinutes: 5
+        DeploymentReadyOption:
+          WaitTimeInMinutes: 5
+      AutoRollbackConfiguration:
+        Enabled: true
+        Events:
+          - DEPLOYMENT_FAILURE
+          - DEPLOYMENT_STOP_ON_ALARM
+          - DEPLOYMENT_STOP_ON_REQUEST
+      LoadBalancerInfo:
+        TargetGroupPairInfoList:
+          - TargetGroups:
+              - Name: !Select [1, !Split ["/", !Ref TargetGroupBlueArn]]
+              - Name: !Select [1, !Split ["/", !Ref TargetGroupGreenArn]]
+            ProdTrafficRoute:
+              ListenerArns:
+                - !Ref ALBListenerArn
+      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-dg"
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      Name: !Sub "${ProjectName}-pipeline"
+      RoleArn: !GetAtt CodePipelineServiceRole.Arn
+      ArtifactStore:
+        Type: S3
+        Location: !Ref PipelineArtifactBucket
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: GitHubSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: CodeStarSourceConnection
+                Version: "1"
+              Configuration:
+                ConnectionArn: !Ref GitHubConnectionArn
+                FullRepositoryId: !Sub "${GitHubOwner}/${GitHubRepo}"
+                BranchName: !Ref GitHubBranch
+                OutputArtifactFormat: CODEPIPELINE
+              OutputArtifacts:
+                - Name: SourceArtifact
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: PrepareTaskDef
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Provider: CodeBuild
+                Version: "1"
+              InputArtifacts:
+                - Name: SourceArtifact
+              OutputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ProjectName: !Ref PrepareTaskDefBuild
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: CodeDeploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Provider: CodeDeploy
+                Version: "1"
+              InputArtifacts:
+                - Name: BuildArtifact
+              Configuration:
+                ApplicationName: !Ref CodeDeployApplication
+                DeploymentGroupName: !Ref CodeDeployDeploymentGroup
+              RunOrder: 1
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-pipeline"
+
+  PipelineStartLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-start-pipeline-lambda-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: StartPipelinePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - codepipeline:StartPipelineExecution
+                Resource: !Sub "arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${ProjectName}-pipeline"
+              - Effect: Allow
+                Action:
+                  - ecr:DescribeImages
+                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${EcrRepositoryName}"
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-start-pipeline-lambda-role"
+
+  PipelineStartLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub "${ProjectName}-start-pipeline-on-ecr-push"
+      Runtime: nodejs18.x
+      Handler: index.handler
+      Role: !GetAtt PipelineStartLambdaRole.Arn
+      Timeout: 30
+      Code:
+        ZipFile: |
+          const AWS = require('aws-sdk');
+          const codepipeline = new AWS.CodePipeline();
+          
+          exports.handler = async (event) => {
+            console.log('Received event:', JSON.stringify(event, null, 2));
+            
+            try {
+              // Validate it's an ECR push event
+              if (event.source !== 'aws.ecr' || 
+                  event['detail-type'] !== 'ECR Image Action' ||
+                  event.detail.action-type !== 'PUSH') {
+                console.log('Not an ECR PUSH event, skipping');
+                return { status: 'skipped' };
+              }
+          
+              const params = {
+                name: process.env.PIPELINE_NAME
+              };
+              
+              console.log('Starting pipeline:', params.name);
+              const result = await codepipeline.startPipelineExecution(params).promise();
+              console.log('Pipeline started successfully:', result.pipelineExecutionId);
+              
+              return {
+                statusCode: 200,
+                body: JSON.stringify({
+                  status: 'success',
+                  executionId: result.pipelineExecutionId
+                })
+              };
+              
+            } catch (error) {
+              console.error('Error starting pipeline:', error);
+              throw error;
+            }
+          };
+      Environment:
+        Variables:
+          PIPELINE_NAME: !Sub "${ProjectName}-pipeline"
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-start-pipeline-on-ecr-push"
+
+  EcrImagePushRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Trigger pipeline start when new image is pushed to ECR
+      EventPattern:
+        source:
+          - aws.ecr
+        detail-type:
+          - ECR Image Action
+        detail:
+          action-type:
+            - PUSH
+          repository-name:
+            - !Ref EcrRepositoryName
+          result:
+            - SUCCESS
+      Targets:
+        - Arn: !GetAtt PipelineStartLambda.Arn
+          Id: InvokeStartPipelineLambda
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-ecr-push-rule"
+
+  LambdaInvokePermissionForEvents:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref PipelineStartLambda
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EcrImagePushRule.Arn
+
+Outputs:
+  PipelineName:
+    Value: !Ref Pipeline
+  PipelineArn:
+    Value: !GetAtt Pipeline.Arn
+  CodeDeployApplicationName:
+    Value: !Ref CodeDeployApplication
+  CodeDeployDeploymentGroup:
+    Value: !Ref CodeDeployDeploymentGroup
+  ArtifactBucket:
+    Value: !Ref PipelineArtifactBucket
