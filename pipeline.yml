@@ -15,9 +15,9 @@ Parameters:
     Default: main
   GitHubConnectionArn:
     Type: String
-  EcrRepositoryName:
+  ECRRepositoryName:
     Type: String
-  EcrRepositoryUri:
+  ECRRepositoryUri:
     Type: String
   ClusterName:
     Type: String
@@ -162,9 +162,9 @@ Resources:
         Type: LINUX_CONTAINER
         EnvironmentVariables:
           - Name: ECR_REPO
-            Value: !Ref EcrRepositoryName
+            Value: !Ref ECRRepositoryName
           - Name: ECR_URI
-            Value: !Ref EcrRepositoryUri
+            Value: !Ref ECRRepositoryUri
           - Name: CLUSTER_NAME
             Value: !Ref ClusterName
           - Name: SERVICE_NAME
@@ -234,7 +234,7 @@ Resources:
               Service: codedeploy.amazonaws.com
             Action: sts:AssumeRole
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSCodeDeployRoleForECS
+        - arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-codedeploy-role"
@@ -254,13 +254,16 @@ Resources:
           Action: TERMINATE
           TerminationWaitTimeInMinutes: 5
         DeploymentReadyOption:
-          WaitTimeInMinutes: 5
+          ActionOnTimeout: CONTINUE_DEPLOYMENT
       AutoRollbackConfiguration:
         Enabled: true
         Events:
           - DEPLOYMENT_FAILURE
           - DEPLOYMENT_STOP_ON_ALARM
           - DEPLOYMENT_STOP_ON_REQUEST
+      ECSServices:
+        - ServiceName: !Ref ServiceName
+          ClusterName: !Ref ClusterName
       LoadBalancerInfo:
         TargetGroupPairInfoList:
           - TargetGroups:
@@ -269,7 +272,6 @@ Resources:
             ProdTrafficRoute:
               ListenerArns:
                 - !Ref ALBListenerArn
-      ServiceRoleArn: !GetAtt CodeDeployServiceRole.Arn
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-dg"
@@ -357,7 +359,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - ecr:DescribeImages
-                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${EcrRepositoryName}"
+                Resource: !Sub "arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepositoryName}"
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-start-pipeline-lambda-role"
@@ -374,7 +376,7 @@ Resources:
         ZipFile: |
           const AWS = require('aws-sdk');
           const codepipeline = new AWS.CodePipeline();
-          
+
           exports.handler = async (event) => {
             console.log('Received event:', JSON.stringify(event, null, 2));
             
@@ -386,7 +388,7 @@ Resources:
                 console.log('Not an ECR PUSH event, skipping');
                 return { status: 'skipped' };
               }
-          
+
               const params = {
                 name: process.env.PIPELINE_NAME
               };
@@ -428,7 +430,7 @@ Resources:
           action-type:
             - PUSH
           repository-name:
-            - !Ref EcrRepositoryName
+            - !Ref ECRRepositoryName
           result:
             - SUCCESS
       Targets:
@@ -450,7 +452,7 @@ Outputs:
   PipelineName:
     Value: !Ref Pipeline
   PipelineArn:
-    Value: !GetAtt Pipeline.Arn
+    Value: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${ProjectName}-pipeline
   CodeDeployApplicationName:
     Value: !Ref CodeDeployApplication
   CodeDeployDeploymentGroup:
