@@ -39,6 +39,7 @@ Resources:
 
   ALBStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
     Properties:
       TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/alb.yml
       Parameters:
@@ -49,6 +50,9 @@ Resources:
 
   ECSStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - NetworkStack
+      - ALBStack
     Properties:
       TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/ecs.yml
       Parameters:
@@ -62,6 +66,10 @@ Resources:
 
   PipelineStack:
     Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - ECRStack
+      - ECSStack
+      - ALBStack
     Properties:
       TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/pipeline.yml
       Parameters:
