@@ -114,4 +114,5 @@ Outputs:
   TargetGroupGreenArn:
     Value: !Ref TargetGroupGreen
   ALBSecurityGroupId:
+    Description: Security group ID of the ALB
     Value: !Ref ALBSecurityGroup
