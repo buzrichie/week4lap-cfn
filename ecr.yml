@@ -35,5 +35,10 @@ Resources:
 Outputs:
   RepositoryName:
     Value: !Ref ECRRepository
+    Export:
+      Name: !Sub "${AWS::StackName}-RepositoryName"
+
   RepositoryUri:
     Value: !GetAtt ECRRepository.RepositoryUri
+    Export:
+      Name: !Sub "${AWS::StackName}-RepositoryUri"
