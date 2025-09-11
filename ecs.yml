@@ -103,11 +103,12 @@ Resources:
     Type: AWS::ECS::Service
     Properties:
       ServiceName: !Sub "${ProjectName}-service"
+      LaunchType: FARGATE
       Cluster: !Ref ECSCluster
       TaskDefinition: !Ref TaskDefinition
       DeploymentController:
         Type: CODE_DEPLOY
-      DesiredCount: 1
+      DesiredCount: 0
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
@@ -128,7 +129,8 @@ Outputs:
   ClusterName:
     Value: !Ref ECSCluster
   ServiceName:
-    Value: !Ref ECSService
+    Description: Name of the ECS service
+    Value: !GetAtt ECSService.Name
   TaskExecutionRoleArn:
     Value: !GetAtt ECSTaskExecutionRole.Arn
   LogGroupName:
