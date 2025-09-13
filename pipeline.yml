@@ -177,12 +177,13 @@ Resources:
               Configuration:
                 ApplicationName: !Ref CodeDeployApplication
                 DeploymentGroupName: !Ref CodeDeployDeploymentGroup
-                TaskDefinitionTemplateArtifact: SourceOutput
-                TaskDefinitionTemplatePath: taskdef.json
                 AppSpecTemplateArtifact: SourceOutput
-                AppSpecTemplatePath: appspec.yaml
+                AppSpecTemplatePath: appspec.yml
+                TaskDefinitionTemplateArtifact: SourceOutput
+                TaskDefinitionTemplatePath: taskdef-rendered.json
               InputArtifacts:
                 - Name: SourceOutput
+              RunOrder: 1
 
 Outputs:
   PipelineName:
