@@ -19,7 +19,7 @@ Parameters:
     Description: CodeStar Connection ARN for GitHub
   ContainerPort:
     Type: Number
-    Default: 80
+    Default: 8080
     Description: Port your container listens on
 
 Resources:
@@ -36,6 +36,18 @@ Resources:
       TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/ecr.yml
       Parameters:
         ProjectName: !Ref ProjectName
+
+  OIDCStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: ECRStack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/oidc.yml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        GitHubOwner: !Ref GitHubOwner
+        GitHubRepo: !Ref GitHubRepo
+        ECRRepositoryArn: !GetAtt ECRStack.Outputs.RepositoryArn
+        PipelineName: !GetAtt PipelineStack.Outputs.PipelineName
 
   ALBStack:
     Type: AWS::CloudFormation::Stack
@@ -88,6 +100,8 @@ Resources:
         ContainerName: !GetAtt ECSStack.Outputs.ContainerName
         ContainerPort: !Ref ContainerPort
         TaskExecutionRoleArn: !GetAtt ECSStack.Outputs.TaskExecutionRoleArn
+        TargetGroupBlueName: !GetAtt ALBStack.Outputs.TargetGroupBlueName
+        TargetGroupGreenName: !GetAtt ALBStack.Outputs.TargetGroupGreenName
 
 Outputs:
   ALBDNSName:
@@ -102,3 +116,6 @@ Outputs:
   ECRRepositoryUri:
     Description: ECR Repository URI
     Value: !GetAtt ECRStack.Outputs.RepositoryUri
+  GitHubActionsRoleArn:
+    Description: IAM Role GitHub Actions uses
+    Value: !GetAtt OIDCStack.Outputs.GitHubActionsRoleArn

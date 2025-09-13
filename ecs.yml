@@ -16,7 +16,7 @@ Parameters:
     Type: String
   ContainerPort:
     Type: Number
-    Default: 80
+    Default: 8080
 
 Resources:
   ECSCluster:

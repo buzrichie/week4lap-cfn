@@ -116,3 +116,7 @@ Outputs:
   ALBSecurityGroupId:
     Description: Security group ID of the ALB
     Value: !Ref ALBSecurityGroup
+  TargetGroupBlueName:
+    Value: !GetAtt TargetGroupBlue.TargetGroupName
+  TargetGroupGreenName:
+    Value: !GetAtt TargetGroupGreen.TargetGroupName

@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: OIDC Provider and IAM Role for GitHub Actions to push to ECR and trigger CodePipeline
+
+Parameters:
+  ProjectName:
+    Type: String
+  GitHubOwner:
+    Type: String
+    Description: GitHub user or org name
+  GitHubRepo:
+    Type: String
+    Description: GitHub repo name
+  ECRRepositoryArn:
+    Type: String
+    Description: ARN of the ECR repo (from ECRStack output)
+  PipelineName:
+    Type: String
+    Description: Name of the CodePipeline (from PipelineStack output)
+
+Resources:
+  GitHubOIDCProvider:
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+
+  GitHubActionsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-GitHubActionsRole"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOIDCProvider
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringLike:
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOwner}/${GitHubRepo}:*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser
+
+  GitHubActionsPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${ProjectName}-GitHubActionsPolicy"
+      Roles:
+        - !Ref GitHubActionsRole
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - codepipeline:StartPipelineExecution
+            Resource: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${PipelineName}
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+            Resource: !Sub arn:aws:s3:::${ProjectName}-artifacts-${AWS::AccountId}-${AWS::Region}/*
+
+Outputs:
+  GitHubActionsRoleArn:
+    Description: IAM Role ARN for GitHub Actions
+    Value: !GetAtt GitHubActionsRole.Arn
