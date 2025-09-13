@@ -176,12 +176,10 @@ Resources:
               Configuration:
                 ApplicationName: !Ref CodeDeployApplication
                 DeploymentGroupName: !Ref CodeDeployDeploymentGroup
-                AppSpecTemplateArtifact: SourceOutput
-                AppSpecTemplatePath: appspec.yaml
                 TaskDefinitionTemplateArtifact: SourceOutput
                 TaskDefinitionTemplatePath: taskdef.json
-                ImageDetailArtifact: SourceOutput
-                ImageDetailPath: imagedefinitions.json
+                AppSpecTemplateArtifact: SourceOutput
+                AppSpecTemplatePath: appspec.yaml
               InputArtifacts:
                 - Name: SourceOutput
 
