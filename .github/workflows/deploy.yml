@@ -32,7 +32,7 @@ jobs:
       - name: Deploy the parent CloudFormation stack
         run: |
           aws cloudformation deploy \
-            --template-file parent-template.yaml \
+            --template-file main.yaml \
             --stack-name ${{ secrets.STACK_NAME }} \
             --no-fail-on-empty-changeset \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_IAM \
