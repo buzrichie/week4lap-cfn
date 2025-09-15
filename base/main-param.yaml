@@ -1,0 +1,10 @@
+template-file-path: main.yaml
+parameters:
+  GitHubConnectionArn: >-
+    arn:aws:codeconnections:eu-central-1:004165097941:connection/69511124-5ae3-4643-90d6-759100f6d03a
+  ProjectName: ecs-lab
+  GitHubOwner: buzrichie
+  ContainerPort: '8080'
+  GitHubBranch: main
+  GitHubRepo: week4lapapp
+tags: {}
