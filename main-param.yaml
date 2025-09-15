@@ -1,8 +1,8 @@
 template-file-path: git-cfn-wk4-main.yaml
 parameters:
   GitHubConnectionArn: >-
-    arn:aws:codeconnections:eu-central-1:004165097941:connection/2e809af8-4bd1-4406-9735-4a248cfc558f
-  ProjectName: ecs-pipeline-lap
+    arn:aws:codeconnections:eu-central-1:004165097941:connection/69511124-5ae3-4643-90d6-759100f6d03a
+  ProjectName: ecs-lab
   GitHubOwner: buzrichie
   ContainerPort: '8080'
   GitHubBranch: main
