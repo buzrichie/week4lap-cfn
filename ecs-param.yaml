@@ -1,0 +1,7 @@
+template-file-path: git-cfn-wk4-ecs.yaml
+parameters:
+  VpcId: vpc-048887d5fe9b3a108
+  ProjectName: ecs-pipeline-lap
+  PublicSubnet2: subnet-0b62dc8c9413ea735
+  PublicSubnet1: subnet-0eea625a902eef3e8
+tags: {}
