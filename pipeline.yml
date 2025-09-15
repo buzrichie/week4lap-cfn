@@ -50,7 +50,7 @@ Resources:
         Status: Enabled
 
   # ----------------------------
-  # Pipeline IAM Role
+  # IAM Role for CodePipeline
   # ----------------------------
   PipelineRole:
     Type: AWS::IAM::Role
@@ -94,15 +94,49 @@ Resources:
   CodeDeployServiceRole:
     Type: AWS::IAM::Role
     Properties:
+      RoleName: !Sub ${ProjectName}-CodeDeployServiceRole
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: 2012-10-17
         Statement:
           - Effect: Allow
             Principal:
               Service: codedeploy.amazonaws.com
             Action: sts:AssumeRole
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS
+      Path: "/"
+      Policies:
+        - PolicyName: CodeDeployECSAccess
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:UpdateService
+                  - ecs:DescribeTaskSets
+                  - ecs:UpdateServicePrimaryTaskSet
+                  - ecs:CreateTaskSet
+                  - ecs:DeleteTaskSet
+                  - elasticloadbalancing:DescribeTargetGroups
+                  - elasticloadbalancing:DescribeListeners
+                  - elasticloadbalancing:ModifyListener
+                  - elasticloadbalancing:DescribeRules
+                  - elasticloadbalancing:ModifyRule
+                  - lambda:InvokeFunction
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - cloudwatch:DeleteAlarms
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                Resource:
+                  - !Sub arn:aws:s3:::${ProjectName}-artifacts-${AWS::AccountId}-${AWS::Region}
+                  - !Sub arn:aws:s3:::${ProjectName}-artifacts-${AWS::AccountId}-${AWS::Region}/*
+              - Effect: Allow
+                Action:
+                  - iam:PassRole
+                Resource: !Ref TaskExecutionRoleArn
 
   # ----------------------------
   # CodeDeploy Deployment Group
@@ -140,7 +174,7 @@ Resources:
                 - !Ref ALBListenerArn
 
   # ----------------------------
-  # Pipeline
+  # CodePipeline Definition
   # ----------------------------
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
