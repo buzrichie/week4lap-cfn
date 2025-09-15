@@ -1,4 +1,4 @@
-template-file-path: git-cfn-wk4-ecr.yaml
+template-file-path: ecr.yaml
 parameters:
-  ProjectName: ecs-pipeline-lap
+  ProjectName: ecs-lab
 tags: {}
