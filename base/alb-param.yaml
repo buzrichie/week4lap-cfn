@@ -1,0 +1,7 @@
+template-file-path: alb.yaml
+parameters:
+  VpcId: vpc-07346512e4b3b9d5e
+  ProjectName: ecs-lab
+  PublicSubnet2: subnet-0ebe8a038961a4496
+  PublicSubnet1: subnet-012f61475c4ec4d2e
+tags: {}
