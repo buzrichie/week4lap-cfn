@@ -1,3 +1,10 @@
 template-file-path: git-cfn-wk4-main.yaml
-parameters: {}
+parameters:
+  GitHubConnectionArn: >-
+    arn:aws:codeconnections:eu-central-1:004165097941:connection/2e809af8-4bd1-4406-9735-4a248cfc558f
+  ProjectName: ecs-pipeline-lap
+  GitHubOwner: buzrichie
+  ContainerPort: '8080'
+  GitHubBranch: main
+  GitHubRepo: week4lapapp
 tags: {}
