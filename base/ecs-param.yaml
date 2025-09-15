@@ -1,7 +1,11 @@
-template-file-path: git-cfn-wk4-ecs.yaml
+template-file-path: ecs.yaml
 parameters:
-  VpcId: vpc-048887d5fe9b3a108
-  ProjectName: ecs-pipeline-lap
-  PublicSubnet2: subnet-0b62dc8c9413ea735
-  PublicSubnet1: subnet-0eea625a902eef3e8
+  PrivateSubnet1: subnet-02abbda4b930fbb5e
+  PrivateSubnet2: subnet-0355f768944a02204
+  ALBSecurityGroupId: sg-08664231bdcb9d6f2
+  VpcId: vpc-07346512e4b3b9d5e
+  ProjectName: ecs-lab
+  ContainerPort: '8080'
+  TargetGroupBlueArn: >-
+    arn:aws:elasticloadbalancing:eu-central-1:004165097941:targetgroup/ecs-lab-tg-blue/19049c6ba8884418
 tags: {}
