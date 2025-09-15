@@ -26,14 +26,14 @@ Resources:
   NetworkStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/network.yml
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/network.yaml
       Parameters:
         ProjectName: !Ref ProjectName
 
   ECRStack:
     Type: AWS::CloudFormation::Stack
     Properties:
-      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/ecr.yml
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/ecr.yaml
       Parameters:
         ProjectName: !Ref ProjectName
 
@@ -41,7 +41,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn: ECRStack
     Properties:
-      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/oidc.yml
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/oidc.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         GitHubOwner: !Ref GitHubOwner
@@ -53,7 +53,7 @@ Resources:
     Type: AWS::CloudFormation::Stack
     DependsOn: NetworkStack
     Properties:
-      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/alb.yml
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/alb.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
@@ -66,7 +66,7 @@ Resources:
       - NetworkStack
       - ALBStack
     Properties:
-      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/ecs.yml
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/ecs.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
@@ -83,7 +83,7 @@ Resources:
       - ECSStack
       - ALBStack
     Properties:
-      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/pipeline.yml
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/pipeline.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         GitHubOwner: !Ref GitHubOwner
