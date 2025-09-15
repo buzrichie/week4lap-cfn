@@ -1,0 +1,24 @@
+template-file-path: pipeline.yaml
+parameters:
+  TaskExecutionRoleArn: arn:aws:iam::004165097941:role/ecs-lab-ecsTaskExecutionRole
+  ProjectName: ecs-lab
+  TargetGroupBlueName: ecs-lab-tg-blue
+  TargetGroupBlueArn: >-
+    arn:aws:elasticloadbalancing:eu-central-1:004165097941:targetgroup/ecs-lab-tg-blue/19049c6ba8884418
+  ALBListenerArn: >-
+    arn:aws:elasticloadbalancing:eu-central-1:004165097941:listener/app/ecs-lab-alb/ebb91a8d94fabe89/09ec53166d4bece8
+  TargetGroupGreenArn: >-
+    arn:aws:elasticloadbalancing:eu-central-1:004165097941:targetgroup/ecs-lab-tg-green/c7e0bce09f38e1e4
+  GitHubConnectionArn: >-
+    arn:aws:codeconnections:eu-central-1:004165097941:connection/69511124-5ae3-4643-90d6-759100f6d03a
+  ECRRepositoryName: ecs-lab-repo
+  ServiceName: ecs-lab-service
+  ContainerName: ecs-lab-container
+  GitHubOwner: buzrichie
+  ContainerPort: '8080'
+  ClusterName: ecs-lab-cluster
+  GitHubBranch: main
+  TargetGroupGreenName: ecs-lab-tg-green
+  GitHubRepo: week4lapapp
+  ECRRepositoryUri: 004165097941.dkr.ecr.eu-central-1.amazonaws.com/ecs-lab-repo
+tags: {}

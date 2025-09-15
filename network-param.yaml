@@ -1,4 +1,4 @@
-template-file-path: ecr.yaml
+template-file-path: network.yaml
 parameters:
   ProjectName: ecs-lab
 tags: {}
