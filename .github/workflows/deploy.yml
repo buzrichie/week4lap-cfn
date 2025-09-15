@@ -22,17 +22,17 @@ jobs:
 
       - name: Upload nested templates to S3
         run: |
-          aws s3 cp ./network.yml s3://${{ secrets.S3_BUCKET_NAME }}/network.yml
-          aws s3 cp ./ecr.yml s3://${{ secrets.S3_BUCKET_NAME }}/ecr.yml
-          aws s3 cp ./alb.yml s3://${{ secrets.S3_BUCKET_NAME }}/alb.yml
-          aws s3 cp ./ecs.yml s3://${{ secrets.S3_BUCKET_NAME }}/ecs.yml
-          aws s3 cp ./oidc.yml s3://${{ secrets.S3_BUCKET_NAME }}/oidc.yml
-          aws s3 cp ./pipeline.yml s3://${{ secrets.S3_BUCKET_NAME }}/pipeline.yml
+          aws s3 cp ./network.yaml s3://${{ secrets.S3_BUCKET_NAME }}/network.yaml
+          aws s3 cp ./ecr.yaml s3://${{ secrets.S3_BUCKET_NAME }}/ecr.yaml
+          aws s3 cp ./alb.yaml s3://${{ secrets.S3_BUCKET_NAME }}/alb.yaml
+          aws s3 cp ./ecs.yaml s3://${{ secrets.S3_BUCKET_NAME }}/ecs.yaml
+          aws s3 cp ./oidc.yaml s3://${{ secrets.S3_BUCKET_NAME }}/oidc.yaml
+          aws s3 cp ./pipeline.yaml s3://${{ secrets.S3_BUCKET_NAME }}/pipeline.yaml
 
       - name: Deploy the parent CloudFormation stack
         run: |
           aws cloudformation deploy \
-            --template-file parent-template.yml \
+            --template-file parent-template.yaml \
             --stack-name ${{ secrets.STACK_NAME }} \
             --no-fail-on-empty-changeset \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_IAM \
