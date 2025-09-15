@@ -5,11 +5,6 @@ on:
     branches:
       - main # Trigger on pushes to the main branch
 
-env:
-  S3_BUCKET_NAME: week-4-lap-cfn
-  STACK_NAME: wk4-pipeline-cfn
-  PARENT_TEMPLATE_PATH: parent-template.yml # Name of your root template
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -29,7 +24,6 @@ jobs:
         run: |
           aws s3 cp ./network.yml s3://${{ secrets.S3_BUCKET_NAME }}/network.yml
           aws s3 cp ./ecr.yml s3://${{ secrets.S3_BUCKET_NAME }}/ecr.yml
-          # Add more commands for all your other nested templates
           aws s3 cp ./alb.yml s3://${{ secrets.S3_BUCKET_NAME }}/alb.yml
           aws s3 cp ./ecs.yml s3://${{ secrets.S3_BUCKET_NAME }}/ecs.yml
           aws s3 cp ./oidc.yml s3://${{ secrets.S3_BUCKET_NAME }}/oidc.yml
@@ -38,13 +32,13 @@ jobs:
       - name: Deploy the parent CloudFormation stack
         run: |
           aws cloudformation deploy \
-            --template-file ${{ secrets.PARENT_TEMPLATE_PATH }} \
+            --template-file parent-template.yml \
             --stack-name ${{ secrets.STACK_NAME }} \
             --no-fail-on-empty-changeset \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_IAM \
             --parameter-overrides \
               ProjectName=ecs-lab \
-              GitHubOwner=buzrichie \
-              GitHubRepo=week4lapapp \
+              GitHubOwner=${{ secrets.GITHUB_OWNER }} \
+              GitHubRepo=${{ secrets.GITHUB_REPO }} \
               GitHubBranch=main \
-              GitHubConnectionArn= ${{ secrets.GIT_CONN }}
+              GitHubConnectionArn=${{ secrets.GIT_CONN }}
