@@ -1,8 +1,0 @@
-template-file-path: oidc.yaml
-parameters:
-  ProjectName: ecs-lab
-  PipelineName: ecs-lab-pipeline
-  GitHubOwner: buzrichie
-  GitHubRepo: week4lapapp
-  ECRRepositoryArn: arn:aws:ecr:eu-central-1:004165097941:repository/ecs-lab-repo
-tags: {}

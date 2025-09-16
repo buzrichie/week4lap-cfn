@@ -1,4 +1,0 @@
-template-file-path: git-cfn-wk4-network.yaml
-parameters:
-  ProjectName: ecs-pipeline-lap
-tags: {}

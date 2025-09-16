@@ -1,4 +1,0 @@
-template-file-path: network.yaml
-parameters:
-  ProjectName: ecs-lab
-tags: {}

@@ -38,7 +38,7 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_IAM \
             --parameter-overrides \
               ProjectName=ecs-lab \
-              GitHubOwner=${{ secrets.GITHUB_OWNER }} \
-              GitHubRepo=${{ secrets.GITHUB_REPO }} \
+              GitHubOwner=buzrichie \
+              GitHubRepo=week4lapapp \
               GitHubBranch=main \
               GitHubConnectionArn=${{ secrets.GIT_CONN }}

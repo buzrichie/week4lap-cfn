@@ -1,4 +1,0 @@
-template-file-path: ecr.yaml
-parameters:
-  ProjectName: ecs-lab
-tags: {}
