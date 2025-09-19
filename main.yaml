@@ -86,16 +86,9 @@ Resources:
       TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/pipeline.yaml
       Parameters:
         ProjectName: !Ref ProjectName
-        GitHubOwner: !Ref GitHubOwner
-        GitHubRepo: !Ref GitHubRepo
-        GitHubBranch: !Ref GitHubBranch
-        GitHubConnectionArn: !Ref GitHubConnectionArn
         ECRRepositoryName: !GetAtt ECRStack.Outputs.RepositoryName
-        ECRRepositoryUri: !GetAtt ECRStack.Outputs.RepositoryUri
         ClusterName: !GetAtt ECSStack.Outputs.ClusterName
         ServiceName: !GetAtt ECSStack.Outputs.ServiceName
-        TargetGroupBlueArn: !GetAtt ALBStack.Outputs.TargetGroupBlueArn
-        TargetGroupGreenArn: !GetAtt ALBStack.Outputs.TargetGroupGreenArn
         ALBListenerArn: !GetAtt ALBStack.Outputs.ALBListenerArn
         ContainerName: !GetAtt ECSStack.Outputs.ContainerName
         ContainerPort: !Ref ContainerPort
