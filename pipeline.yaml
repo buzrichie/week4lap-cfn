@@ -166,7 +166,7 @@ Resources:
         Type: S3
         Location: !Ref ArtifactBucket
       Stages:
-        - Name: SourceECR
+        - Name: Source
           Actions:
             - Name: ECRSource
               ActionTypeId:
@@ -178,11 +178,9 @@ Resources:
                 RepositoryName: !Ref ECRRepositoryName
                 ImageTag: latest
               OutputArtifacts:
-                - Name: ECRImageOutput
+                - Name: ECRSourceOutput
 
-        - Name: SourceS3
-          Actions:
-            - Name: S3Source
+            - Name: S3Templates
               ActionTypeId:
                 Category: Source
                 Owner: AWS
@@ -191,9 +189,8 @@ Resources:
               Configuration:
                 S3Bucket: !Ref ArtifactBucket
                 S3ObjectKey: deployment-templates.zip
-                PollForSourceChanges: false
               OutputArtifacts:
-                - Name: S3TemplateOutput
+                - Name: TemplatesOutput
 
         - Name: Deploy
           Actions:
@@ -206,13 +203,35 @@ Resources:
               Configuration:
                 ApplicationName: !Ref CodeDeployApplication
                 DeploymentGroupName: !Ref CodeDeployDeploymentGroup
-                TaskDefinitionTemplateArtifact: S3TemplateOutput
-                TaskDefinitionTemplatePath: taskdef-rendered.json
-                AppSpecTemplateArtifact: S3TemplateOutput
+                TaskDefinitionTemplateArtifact: TemplatesOutput
+                TaskDefinitionTemplatePath: taskdef.json
+                AppSpecTemplateArtifact: TemplatesOutput
                 AppSpecTemplatePath: appspec.yml
               InputArtifacts:
-                - Name: ECRImageOutput
-                - Name: S3TemplateOutput
+                - Name: TemplatesOutput
+                - Name: ECRSourceOutput
+
+  # ----------------------------
+  # Role for EventBridge to trigger pipeline
+  # ----------------------------
+  EventBridgeInvokePipelineRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AllowStartPipeline
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: codepipeline:StartPipelineExecution
+                Resource: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${ProjectName}-pipeline
 
   # ----------------------------
   # EventBridge Rule (Trigger Pipeline on ECR Push)
@@ -221,20 +240,16 @@ Resources:
     Type: AWS::Events::Rule
     Properties:
       EventPattern:
-        source:
-          - "aws.ecr"
-        detail-type:
-          - "ECR Image Action"
+        source: ["aws.ecr"]
+        detail-type: ["ECR Image Action"]
         detail:
-          action-type:
-            - PUSH
-          result:
-            - SUCCESS
-          repository-name:
-            - !Ref ECRRepositoryName
+          action-type: ["PUSH"]
+          result: ["SUCCESS"]
+          repository-name: [!Ref ECRRepositoryName]
       Targets:
         - Arn: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${ProjectName}-pipeline
           Id: "ECRPipelineTrigger"
+          RoleArn: !GetAtt EventBridgeInvokePipelineRole.Arn
 
 Outputs:
   PipelineName:
