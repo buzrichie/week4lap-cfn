@@ -59,13 +59,14 @@ Resources:
                   - ecs:*
                   - codedeploy:*
                 Resource: "*"
+
               - Effect: Allow
                 Action:
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchGetImage
                   - ecr:DescribeImages
                   - ecr:DescribeRepositories
-                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepositoryName}
+                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-repo
 
   # ----------------------------
   # CodeDeploy Application
@@ -199,11 +200,11 @@ Resources:
                 ApplicationName: !Ref CodeDeployApplication
                 DeploymentGroupName: !Ref CodeDeployDeploymentGroup
                 TaskDefinitionTemplateArtifact: SourceArtifact
-                TaskDefinitionTemplatePath: taskdef-rendered.json
+                TaskDefinitionTemplatePath: taskdef.json
                 AppSpecTemplateArtifact: SourceArtifact
                 AppSpecTemplatePath: appspec.yml
                 Image1ArtifactName: SourceArtifact
-                Image1ContainerName: !Ref ContainerName # ✅ Required
+                Image1ContainerName: !Ref ContainerName
               InputArtifacts:
                 - Name: SourceArtifact
 
