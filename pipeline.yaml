@@ -1,29 +1,14 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: CodePipeline for ECS Fargate Blue/Green Deployment (App artifacts come from S3)
+Description: CodePipeline for ECS Fargate Blue/Green Deployment (triggered by ECR image push)
 
 Parameters:
   ProjectName:
     Type: String
-  GitHubOwner:
-    Type: String
-  GitHubRepo:
-    Type: String
-  GitHubBranch:
-    Type: String
-    Default: main
-  GitHubConnectionArn:
-    Type: String
   ECRRepositoryName:
-    Type: String
-  ECRRepositoryUri:
     Type: String
   ClusterName:
     Type: String
   ServiceName:
-    Type: String
-  TargetGroupBlueArn:
-    Type: String
-  TargetGroupGreenArn:
     Type: String
   TargetGroupBlueName:
     Type: String
@@ -74,10 +59,6 @@ Resources:
                   - ecs:*
                   - codedeploy:*
                 Resource: "*"
-              - Effect: Allow
-                Action:
-                  - codestar-connections:UseConnection
-                Resource: !Ref GitHubConnectionArn
 
   # ----------------------------
   # CodeDeploy Application
@@ -174,7 +155,7 @@ Resources:
                 - !Ref ALBListenerArn
 
   # ----------------------------
-  # CodePipeline Definition
+  # CodePipeline Definition (ECR + S3 Sources)
   # ----------------------------
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
@@ -185,7 +166,21 @@ Resources:
         Type: S3
         Location: !Ref ArtifactBucket
       Stages:
-        - Name: Source
+        - Name: SourceECR
+          Actions:
+            - Name: ECRSource
+              ActionTypeId:
+                Category: Source
+                Owner: AWS
+                Provider: ECR
+                Version: 1
+              Configuration:
+                RepositoryName: !Ref ECRRepositoryName
+                ImageTag: latest
+              OutputArtifacts:
+                - Name: ECRImageOutput
+
+        - Name: SourceS3
           Actions:
             - Name: S3Source
               ActionTypeId:
@@ -195,10 +190,10 @@ Resources:
                 Version: 1
               Configuration:
                 S3Bucket: !Ref ArtifactBucket
-                S3ObjectKey: appspec-artifact.zip # uploaded by GitHub Actions
+                S3ObjectKey: deployment-templates.zip
                 PollForSourceChanges: false
               OutputArtifacts:
-                - Name: SourceOutput
+                - Name: S3TemplateOutput
 
         - Name: Deploy
           Actions:
@@ -211,13 +206,35 @@ Resources:
               Configuration:
                 ApplicationName: !Ref CodeDeployApplication
                 DeploymentGroupName: !Ref CodeDeployDeploymentGroup
-                AppSpecTemplateArtifact: SourceOutput
-                AppSpecTemplatePath: appspec.yml
-                TaskDefinitionTemplateArtifact: SourceOutput
+                TaskDefinitionTemplateArtifact: S3TemplateOutput
                 TaskDefinitionTemplatePath: taskdef-rendered.json
+                AppSpecTemplateArtifact: S3TemplateOutput
+                AppSpecTemplatePath: appspec.yml
               InputArtifacts:
-                - Name: SourceOutput
-              RunOrder: 1
+                - Name: ECRImageOutput
+                - Name: S3TemplateOutput
+
+  # ----------------------------
+  # EventBridge Rule (Trigger Pipeline on ECR Push)
+  # ----------------------------
+  ECRPipelineTriggerRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventPattern:
+        source:
+          - "aws.ecr"
+        detail-type:
+          - "ECR Image Action"
+        detail:
+          action-type:
+            - PUSH
+          result:
+            - SUCCESS
+          repository-name:
+            - !Ref ECRRepositoryName
+      Targets:
+        - Arn: !Sub arn:aws:codepipeline:${AWS::Region}:${AWS::AccountId}:${ProjectName}-pipeline
+          Id: "ECRPipelineTrigger"
 
 Outputs:
   PipelineName:
