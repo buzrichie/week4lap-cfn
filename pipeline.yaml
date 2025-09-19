@@ -203,8 +203,6 @@ Resources:
                 TaskDefinitionTemplatePath: taskdef.json
                 AppSpecTemplateArtifact: SourceArtifact
                 AppSpecTemplatePath: appspec.yml
-                Image1ArtifactName: SourceArtifact
-                Image1ContainerName: !Ref ContainerName
               InputArtifacts:
                 - Name: SourceArtifact
 
