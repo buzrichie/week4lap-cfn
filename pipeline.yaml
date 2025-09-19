@@ -59,14 +59,13 @@ Resources:
                   - ecs:*
                   - codedeploy:*
                 Resource: "*"
-
               - Effect: Allow
                 Action:
                   - ecr:GetDownloadUrlForLayer
                   - ecr:BatchGetImage
                   - ecr:DescribeImages
                   - ecr:DescribeRepositories
-                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-repo
+                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ECRRepositoryName}
 
   # ----------------------------
   # CodeDeploy Application
@@ -168,7 +167,7 @@ Resources:
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
-      Name: !Sub "${ProjectName}-pipeline"
+      Name: !Sub ${ProjectName}-pipeline
       RoleArn: !GetAtt PipelineRole.Arn
       ArtifactStore:
         Type: S3
@@ -176,48 +175,37 @@ Resources:
       Stages:
         - Name: Source
           Actions:
-            - Name: ECRSource
+            - Name: S3Source
               ActionTypeId:
                 Category: Source
                 Owner: AWS
-                Provider: ECR
-                Version: 1
-              Configuration:
-                RepositoryName: !Ref ECRRepositoryName
-                ImageTag: latest
-              OutputArtifacts:
-                - Name: ECRSourceOutput
-
-            - Name: S3Templates
-              ActionTypeId:
-                Category: Source
-                Owner: AWS
+                Version: "1"
                 Provider: S3
-                Version: 1
               Configuration:
                 S3Bucket: !Ref ArtifactBucket
-                S3ObjectKey: deployment-templates.zip
+                S3ObjectKey: deployment-artifacts/latest.zip
+                PollForSourceChanges: false
               OutputArtifacts:
-                - Name: TemplatesOutput
-
+                - Name: SourceArtifact
         - Name: Deploy
           Actions:
             - Name: ECSBlueGreenDeploy
               ActionTypeId:
                 Category: Deploy
                 Owner: AWS
+                Version: "1"
                 Provider: CodeDeployToECS
-                Version: 1
               Configuration:
                 ApplicationName: !Ref CodeDeployApplication
                 DeploymentGroupName: !Ref CodeDeployDeploymentGroup
-                TaskDefinitionTemplateArtifact: TemplatesOutput
-                TaskDefinitionTemplatePath: taskdef.json
-                AppSpecTemplateArtifact: TemplatesOutput
+                TaskDefinitionTemplateArtifact: SourceArtifact
+                TaskDefinitionTemplatePath: taskdef-rendered.json
+                AppSpecTemplateArtifact: SourceArtifact
                 AppSpecTemplatePath: appspec.yml
+                Image1ArtifactName: SourceArtifact
+                Image1ContainerName: !Ref ContainerName # ✅ Required
               InputArtifacts:
-                - Name: TemplatesOutput
-                - Name: ECRSourceOutput
+                - Name: SourceArtifact
 
   # ----------------------------
   # Role for EventBridge to trigger pipeline
