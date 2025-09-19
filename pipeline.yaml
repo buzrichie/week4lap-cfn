@@ -60,6 +60,14 @@ Resources:
                   - codedeploy:*
                 Resource: "*"
 
+              - Effect: Allow
+                Action:
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:DescribeImages
+                  - ecr:DescribeRepositories
+                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-repo
+
   # ----------------------------
   # CodeDeploy Application
   # ----------------------------
