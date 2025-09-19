@@ -37,17 +37,17 @@ Resources:
       Parameters:
         ProjectName: !Ref ProjectName
 
-  # OIDCStack:
-  #   Type: AWS::CloudFormation::Stack
-  #   DependsOn: ECRStack
-  #   Properties:
-  #     TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/oidc.yaml
-  #     Parameters:
-  #       ProjectName: !Ref ProjectName
-  #       GitHubOwner: !Ref GitHubOwner
-  #       GitHubRepo: !Ref GitHubRepo
-  #       ECRRepositoryArn: !GetAtt ECRStack.Outputs.RepositoryArn
-  #       PipelineName: !GetAtt PipelineStack.Outputs.PipelineName
+  OIDCStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: ECRStack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/oidc.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        GitHubOwner: !Ref GitHubOwner
+        GitHubRepo: !Ref GitHubRepo
+        ECRRepositoryArn: !GetAtt ECRStack.Outputs.RepositoryArn
+        PipelineName: !GetAtt PipelineStack.Outputs.PipelineName
 
   ALBStack:
     Type: AWS::CloudFormation::Stack
@@ -76,25 +76,25 @@ Resources:
         TargetGroupBlueArn: !GetAtt ALBStack.Outputs.TargetGroupBlueArn
         ContainerPort: !Ref ContainerPort
 
-  # PipelineStack:
-  #   Type: AWS::CloudFormation::Stack
-  #   DependsOn:
-  #     - ECRStack
-  #     - ECSStack
-  #     - ALBStack
-  #   Properties:
-  #     TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/pipeline.yaml
-  #     Parameters:
-  #       ProjectName: !Ref ProjectName
-  #       ECRRepositoryName: !GetAtt ECRStack.Outputs.RepositoryName
-  #       ClusterName: !GetAtt ECSStack.Outputs.ClusterName
-  #       ServiceName: !GetAtt ECSStack.Outputs.ServiceName
-  #       ALBListenerArn: !GetAtt ALBStack.Outputs.ALBListenerArn
-  #       ContainerName: !GetAtt ECSStack.Outputs.ContainerName
-  #       ContainerPort: !Ref ContainerPort
-  #       TaskExecutionRoleArn: !GetAtt ECSStack.Outputs.TaskExecutionRoleArn
-  #       TargetGroupBlueName: !GetAtt ALBStack.Outputs.TargetGroupBlueName
-  #       TargetGroupGreenName: !GetAtt ALBStack.Outputs.TargetGroupGreenName
+  PipelineStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - ECRStack
+      - ECSStack
+      - ALBStack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/pipeline.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        ECRRepositoryName: !GetAtt ECRStack.Outputs.RepositoryName
+        ClusterName: !GetAtt ECSStack.Outputs.ClusterName
+        ServiceName: !GetAtt ECSStack.Outputs.ServiceName
+        ALBListenerArn: !GetAtt ALBStack.Outputs.ALBListenerArn
+        ContainerName: !GetAtt ECSStack.Outputs.ContainerName
+        ContainerPort: !Ref ContainerPort
+        TaskExecutionRoleArn: !GetAtt ECSStack.Outputs.TaskExecutionRoleArn
+        TargetGroupBlueName: !GetAtt ALBStack.Outputs.TargetGroupBlueName
+        TargetGroupGreenName: !GetAtt ALBStack.Outputs.TargetGroupGreenName
 
 Outputs:
   ALBDNSName:
