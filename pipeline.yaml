@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: CodePipeline for ECS Fargate Blue/Green Deployment (triggered by ECR image push)
+Description: CodePipeline for ECS Fargate Blue/Green Deployment (triggered by ECR image push).
 
 Parameters:
   ProjectName:
