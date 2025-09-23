@@ -163,7 +163,7 @@ Resources:
                 - !Ref ALBListenerArn
 
   # ----------------------------
-  # CodePipeline Definition (ECR + S3 Sources)
+  # CodePipeline Definition (S3 Sources)
   # ----------------------------
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
