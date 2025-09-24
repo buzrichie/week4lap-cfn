@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: S3 Bucket setup for image storage (private + VPC endpoint restricted)
+
+Parameters:
+  ProjectName:
+    Type: String
+
+  VpcId:
+    Type: String
+    Description: VPC ID from Network stack
+
+  ECSTaskRoleArn:
+    Type: String
+    Description: IAM Role ARN used by ECS tasks
+
+  S3VPCEndpointId:
+    Type: String
+    Description: VPC Gateway Endpoint ID for S3 (must be created in Network stack)
+
+Resources:
+  ImageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-images-${AWS::AccountId}"
+      AccessControl: Private
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ImageBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Allow ECS task role to Get/Put/Delete only via VPC endpoint
+          - Sid: AllowEcsTaskRoleAccess
+            Effect: Allow
+            Principal:
+              AWS: !Ref ECSTaskRoleArn
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+              - "s3:DeleteObject"
+            Resource: !Sub "${ImageBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                aws:SourceVpce: !Ref S3VPCEndpointId
+
+          # Explicitly deny everything else if request is not from VPC Endpoint
+          - Sid: DenyNonVPCEndpoint
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt ImageBucket.Arn
+              - !Sub "${ImageBucket.Arn}/*"
+            Condition:
+              StringNotEquals:
+                aws:SourceVpce: !Ref S3VPCEndpointId
+
+Outputs:
+  ImageBucketName:
+    Description: Name of the private image bucket
+    Value: !Ref ImageBucket
+  ImageBucketArn:
+    Description: ARN of the private image bucket
+    Value: !GetAtt ImageBucket.Arn

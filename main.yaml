@@ -76,6 +76,33 @@ Resources:
         TargetGroupBlueArn: !GetAtt ALBStack.Outputs.TargetGroupBlueArn
         ContainerPort: !Ref ContainerPort
 
+  RDSStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - NetworkStack
+      - ECSStack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/database.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1
+        PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2
+        ECSServiceSecurityGroupId: !GetAtt ECSStack.Outputs.ECSServiceSecurityGroupId
+
+  S3Stack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - NetworkStack
+      - ECSStack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/storage.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        ECSTaskRoleArn: !GetAtt ECSStack.Outputs.TaskRoleArn
+        S3VPCEndpointId: !GetAtt NetworkStack.Outputs.S3VPCEndpointId
+
   PipelineStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
