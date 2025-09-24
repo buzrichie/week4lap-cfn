@@ -1,5 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: Network stack with 2 NATs (HA)
+Description: >
+  Network stack with 2 NATs (HA) plus VPC endpoints for S3 (Gateway), ECR (api/dkr),
+  and CloudWatch Logs (Interface). Adds an Endpoint Security Group and exposes
+  private route table IDs and VPC endpoint IDs as Outputs for nested stacks.
 
 Parameters:
   ProjectName:
@@ -181,6 +184,91 @@ Resources:
       SubnetId: !Ref PrivateSubnet2
       RouteTableId: !Ref PrivateRouteTable2
 
+  ################################################
+  # Endpoint Security Group for Interface Endpoints
+  # Allows inbound from VPC CID range so ECS tasks in the VPC
+  # can reach the interface endpoints (ECR, Logs)
+  ################################################
+  VpcEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${ProjectName} VPC Endpoint SG"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 10.0.0.0/16
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: 0
+          ToPort: 65535
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-vpce-sg"
+
+  ################################################
+  # VPC Endpoints
+  ################################################
+  S3GatewayEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcId: !Ref VPC
+      RouteTableIds:
+        - !Ref PrivateRouteTable1
+        - !Ref PrivateRouteTable2
+      VpcEndpointType: Gateway
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-s3-vpce"
+
+  EcrApiEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.api"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VpcEndpointSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-ecr-api-vpce"
+
+  EcrDkrEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.dkr"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VpcEndpointSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-ecr-dkr-vpce"
+
+  LogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VpcEndpointSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-logs-vpce"
+
 Outputs:
   VpcId:
     Value: !Ref VPC
@@ -192,3 +280,24 @@ Outputs:
     Value: !Ref PrivateSubnet1
   PrivateSubnet2:
     Value: !Ref PrivateSubnet2
+  PrivateRouteTable1:
+    Description: "Private route table 1 ID (attach S3 gateway endpoint)"
+    Value: !Ref PrivateRouteTable1
+  PrivateRouteTable2:
+    Description: "Private route table 2 ID (attach S3 gateway endpoint)"
+    Value: !Ref PrivateRouteTable2
+  S3VPCEndpointId:
+    Description: "S3 Gateway VPC Endpoint ID"
+    Value: !Ref S3GatewayEndpoint
+  EcrApiVpcEndpointId:
+    Description: "ECR API Interface VPC Endpoint ID"
+    Value: !Ref EcrApiEndpoint
+  EcrDkrVpcEndpointId:
+    Description: "ECR DKR Interface VPC Endpoint ID"
+    Value: !Ref EcrDkrEndpoint
+  LogsVpcEndpointId:
+    Description: "CloudWatch Logs Interface VPC Endpoint ID"
+    Value: !Ref LogsEndpoint
+  VpcEndpointSecurityGroupId:
+    Description: "Security Group ID used by interface VPC endpoints"
+    Value: !Ref VpcEndpointSecurityGroup

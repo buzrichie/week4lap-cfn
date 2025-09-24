@@ -44,6 +44,47 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-ecsTaskExecutionRole"
 
+  # -----------------------------
+  # ECS Task Role (App Role)
+  # -----------------------------
+  ECSTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # You can attach inline or managed policies –
+        # Start with AmazonS3ReadOnlyAccess for testing if needed
+        # but for security, define inline with only bucket access
+        - arn:aws:iam::aws:policy/AmazonRDSFullAccess # 🔒 optional, refine later
+      RoleName: !Sub "${ProjectName}-ecsTaskRole"
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-ecsTaskRole"
+
+  # Inline policy for S3 bucket access (restricted to your project bucket only)
+  ECSTaskRolePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub "${ProjectName}-ecsTaskRolePolicy"
+      Roles:
+        - !Ref ECSTaskRole
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+              - "s3:DeleteObject"
+            Resource:
+              - !Sub "arn:aws:s3:::${ProjectName}-images-${AWS::AccountId}/*"
+
   LogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
@@ -82,6 +123,7 @@ Resources:
       Cpu: 256
       Memory: 512
       ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      # TaskRoleArn: !GetAtt ECSTaskRole.Arn
       ContainerDefinitions:
         - Name: !Sub "${ProjectName}-container"
           Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ProjectName}-repo:latest"
@@ -133,7 +175,17 @@ Outputs:
     Value: !GetAtt ECSService.Name
   TaskExecutionRoleArn:
     Value: !GetAtt ECSTaskExecutionRole.Arn
+  TaskRoleArn:
+    Description: IAM Role assumed by ECS tasks for S3/RDS access
+    Value: !GetAtt ECSTaskRole.Arn
+    Export:
+      Name: !Sub "${ProjectName}-TaskRoleArn"
   LogGroupName:
     Value: !Ref LogGroup
   ContainerName:
     Value: !Sub "${ProjectName}-container"
+  ECSServiceSecurityGroupId:
+    Description: Security Group ID for ECS service
+    Value: !Ref ServiceSecurityGroup
+    Export:
+      Name: ECSServiceSecurityGroupId
