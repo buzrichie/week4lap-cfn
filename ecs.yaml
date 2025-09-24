@@ -17,6 +17,9 @@ Parameters:
   ContainerPort:
     Type: Number
     Default: 8080
+  ECSServiceSecurityGroupId:
+    Type: String
+    Description: Security group ID created in NetworkStack for ECS service tasks
 
 Resources:
   ECSCluster:
@@ -62,7 +65,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-ecsTaskRole"
 
-  # Inline policy for S3 and RDS access
+  # Inline policy for S3, RDS, Secrets Manager
   ECSTaskRolePolicy:
     Type: AWS::IAM::Policy
     Properties:
@@ -105,36 +108,6 @@ Resources:
         - Key: Name
           Value: !Sub "/ecs/${ProjectName}"
 
-  ServiceSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: ECS Service Security Group
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: !Ref ContainerPort
-          ToPort: !Ref ContainerPort
-          SourceSecurityGroupId: !Ref ALBSecurityGroupId
-      SecurityGroupEgress:
-        # Allow outbound to RDS (port 5432)
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          CidrIp: 0.0.0.0/0
-        # Allow outbound to VPC endpoints (HTTPS)
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: 0.0.0.0/0
-        # Allow outbound to CloudWatch Logs
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: 0.0.0.0/0
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-service-sg"
-
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -164,8 +137,6 @@ Resources:
               Value: !Ref AWS::Region
             - Name: S3_BUCKET_NAME
               Value: !Sub "${ProjectName}-images-${AWS::AccountId}"
-            # Database configuration will be passed via ECS task definition updates
-            # during deployment, not hardcoded in CloudFormation
           Secrets:
             - Name: DATABASE_URL
               ValueFrom: !Sub "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${ProjectName}-rds-credentials"
@@ -182,12 +153,12 @@ Resources:
       TaskDefinition: !Ref TaskDefinition
       DeploymentController:
         Type: CODE_DEPLOY
-      DesiredCount: 0 # Start with 0 until we have a container image
+      DesiredCount: 0
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
           SecurityGroups:
-            - !Ref ServiceSecurityGroup
+            - !Ref ECSServiceSecurityGroupId
           Subnets:
             - !Ref PrivateSubnet1
             - !Ref PrivateSubnet2
@@ -216,8 +187,3 @@ Outputs:
     Value: !Ref LogGroup
   ContainerName:
     Value: !Sub "${ProjectName}-container"
-  ECSServiceSecurityGroupId:
-    Description: Security Group ID for ECS service
-    Value: !Ref ServiceSecurityGroup
-    Export:
-      Name: ECSServiceSecurityGroupId

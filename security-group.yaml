@@ -1,0 +1,53 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Outcast Security Groups for ECS Service and RDS
+
+Parameters:
+  ProjectName:
+    Type: String
+  VpcId:
+    Type: String
+
+Resources:
+  # Security group for ECS Service (receives traffic from ALB)
+  ECSServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${ProjectName} ECS Service SG"
+      VpcId: !Ref VpcId
+      # Ingress only allows ALB -> ECS tasks on port 80 (adjust if needed)
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-ecs-sg"
+
+  # Security group for RDS (only allows ECS tasks to connect on 5432)
+  RDSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub "${ProjectName} RDS SG"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref ECSServiceSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-rds-sg"
+
+Outputs:
+  ECSServiceSecurityGroupId:
+    Description: Security Group ID for ECS Service
+    Value: !Ref ECSServiceSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-ECSServiceSG"
+
+  RDSSecurityGroupId:
+    Description: Security Group ID for RDS
+    Value: !Ref RDSSecurityGroup
+    Export:
+      Name: !Sub "${ProjectName}-RDSSG"
