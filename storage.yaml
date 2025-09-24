@@ -41,8 +41,8 @@ Resources:
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          # Allow ECS task role to Get/Put/Delete only via VPC endpoint
-          - Sid: AllowEcsTaskRoleAccess
+          # Allow ECS task role to Get/Put/Delete ONLY via VPC endpoint
+          - Sid: AllowEcsTaskRoleViaVPCEndpoint
             Effect: Allow
             Principal:
               AWS: !Ref ECSTaskRoleArn
@@ -50,13 +50,16 @@ Resources:
               - "s3:GetObject"
               - "s3:PutObject"
               - "s3:DeleteObject"
-            Resource: !Sub "${ImageBucket.Arn}/*"
+              - "s3:ListBucket"
+            Resource:
+              - !GetAtt ImageBucket.Arn
+              - !Sub "${ImageBucket.Arn}/*"
             Condition:
               StringEquals:
-                aws:SourceVpce: !Ref S3VPCEndpointId
+                "aws:SourceVpce": !Ref S3VPCEndpointId
 
           # Explicitly deny everything else if request is not from VPC Endpoint
-          - Sid: DenyNonVPCEndpoint
+          - Sid: DenyNonVPCEndpointAccess
             Effect: Deny
             Principal: "*"
             Action: "s3:*"
@@ -65,7 +68,7 @@ Resources:
               - !Sub "${ImageBucket.Arn}/*"
             Condition:
               StringNotEquals:
-                aws:SourceVpce: !Ref S3VPCEndpointId
+                "aws:SourceVpce": !Ref S3VPCEndpointId
 
 Outputs:
   ImageBucketName:
