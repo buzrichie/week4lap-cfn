@@ -4,7 +4,7 @@ Description: Root stack for ECS Fargate with Blue/Green Deployment (Nested Stack
 Parameters:
   ProjectName:
     Type: String
-    Default: ecs-lab
+    Default: photo-lab
   GitHubOwner:
     Type: String
     Description: GitHub owner/org name
@@ -29,6 +29,15 @@ Resources:
       TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/network.yaml
       Parameters:
         ProjectName: !Ref ProjectName
+
+  SecurityGroupsStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
+    Properties:
+      TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/security-group.yaml
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
 
   ECRStack:
     Type: AWS::CloudFormation::Stack
@@ -65,6 +74,7 @@ Resources:
     DependsOn:
       - NetworkStack
       - ALBStack
+      - SecurityGroupsStack
     Properties:
       TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/ecs.yaml
       Parameters:
@@ -74,13 +84,14 @@ Resources:
         PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2
         ALBSecurityGroupId: !GetAtt ALBStack.Outputs.ALBSecurityGroupId
         TargetGroupBlueArn: !GetAtt ALBStack.Outputs.TargetGroupBlueArn
+        ECSServiceSecurityGroupId: !GetAtt SecurityGroupsStack.Outputs.ECSServiceSecurityGroupId
         ContainerPort: !Ref ContainerPort
 
   RDSStack:
     Type: AWS::CloudFormation::Stack
     DependsOn:
       - NetworkStack
-      - ECSStack
+      - SecurityGroupsStack
     Properties:
       TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/database.yaml
       Parameters:
@@ -88,7 +99,7 @@ Resources:
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
         PrivateSubnet1: !GetAtt NetworkStack.Outputs.PrivateSubnet1
         PrivateSubnet2: !GetAtt NetworkStack.Outputs.PrivateSubnet2
-        ECSServiceSecurityGroupId: !GetAtt ECSStack.Outputs.ECSServiceSecurityGroupId
+        RDSSecurityGroupId: !GetAtt SecurityGroupsStack.Outputs.RDSSecurityGroupId
 
   S3Stack:
     Type: AWS::CloudFormation::Stack

@@ -10,26 +10,11 @@ Parameters:
     Type: String
   PrivateSubnet2:
     Type: String
-  ECSServiceSecurityGroupId:
+  RDSSecurityGroupId:
     Type: String
-    Description: Security group of ECS service tasks that should access RDS
+    Description: Pre-created RDS Security Group from NetworkStack
 
 Resources:
-  # Security group for RDS
-  RDSSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: !Sub "${ProjectName} RDS Security Group"
-      VpcId: !Ref VpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 5432
-          ToPort: 5432
-          SourceSecurityGroupId: !Ref ECSServiceSecurityGroupId
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-rds-sg"
-
   # Subnet group for RDS (must be in private subnets)
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -42,6 +27,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-db-subnet-group"
 
+  # RDS credentials stored in Secrets Manager
   RDSSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
@@ -70,7 +56,7 @@ Resources:
       MultiAZ: false
       PubliclyAccessible: false
       VPCSecurityGroups:
-        - !GetAtt RDSSecurityGroup.GroupId
+        - !Ref RDSSecurityGroupId
       DBSubnetGroupName: !Ref DBSubnetGroup
       MasterUsername: !Sub "{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}"
       MasterUserPassword: !Sub "{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}"
@@ -85,9 +71,6 @@ Outputs:
   RDSInstanceEndpoint:
     Description: Endpoint of the RDS instance
     Value: !GetAtt RDSInstance.Endpoint.Address
-  RDSSecurityGroupId:
-    Description: Security Group ID of RDS
-    Value: !Ref RDSSecurityGroup
   RDSSecretArn:
     Description: ARN of the RDS secrets
     Value: !Ref RDSSecret
