@@ -26,11 +26,6 @@ Resources:
           FromPort: 5432
           ToPort: 5432
           SourceSecurityGroupId: !Ref ECSServiceSecurityGroupId
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          FromPort: 0
-          ToPort: 65535
-          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-rds-sg"
@@ -53,9 +48,14 @@ Resources:
       Name: !Sub "${ProjectName}-rds-credentials"
       Description: RDS credentials for PostgreSQL
       GenerateSecretString:
-        SecretStringTemplate: '{"username": "admin"}'
+        SecretStringTemplate: '{"username": "appuser"}'
         GenerateStringKey: "password"
+        PasswordLength: 16
         ExcludeCharacters: '"@/\\'
+        ExcludePunctuation: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-rds-credentials"
 
   # RDS Instance
   RDSInstance:
@@ -70,9 +70,9 @@ Resources:
       MultiAZ: false
       PubliclyAccessible: false
       VPCSecurityGroups:
-        - !Ref RDSSecurityGroup
+        - !GetAtt RDSSecurityGroup.GroupId
       DBSubnetGroupName: !Ref DBSubnetGroup
-      MasterUsername: admin
+      MasterUsername: !Sub "{{resolve:secretsmanager:${RDSSecret}:SecretString:username}}"
       MasterUserPassword: !Sub "{{resolve:secretsmanager:${RDSSecret}:SecretString:password}}"
       BackupRetentionPeriod: 1
       DeletionProtection: false
@@ -88,3 +88,6 @@ Outputs:
   RDSSecurityGroupId:
     Description: Security Group ID of RDS
     Value: !Ref RDSSecurityGroup
+  RDSSecretArn:
+    Description: ARN of the RDS secrets
+    Value: !Ref RDSSecret

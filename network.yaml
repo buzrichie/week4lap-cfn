@@ -1,8 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
-  Network stack with 2 NATs (HA) plus VPC endpoints for S3 (Gateway), ECR (api/dkr),
-  and CloudWatch Logs (Interface). Adds an Endpoint Security Group and exposes
-  private route table IDs and VPC endpoint IDs as Outputs for nested stacks.
+  Private network stack with VPC endpoints for ECS, plus public subnets for ALB only.
+  No NAT Gateways - ECS uses VPC endpoints for all AWS services.
 
 Parameters:
   ProjectName:
@@ -32,7 +31,7 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  # Public Subnets (AZ1, AZ2)
+  # Public Subnets (ONLY for ALB - no ECS tasks here)
   PublicSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -55,7 +54,7 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-public-2"
 
-  # Private Subnets (AZ1, AZ2)
+  # Private Subnets for ECS tasks (no internet access)
   PrivateSubnet1:
     Type: AWS::EC2::Subnet
     Properties:
@@ -77,41 +76,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-private-2"
-
-  # NATs (one per AZ)
-  NatEIP1:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-nat-eip-1"
-
-  NatGateway1:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt NatEIP1.AllocationId
-      SubnetId: !Ref PublicSubnet1
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-nat-1"
-
-  NatEIP2:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-nat-eip-2"
-
-  NatGateway2:
-    Type: AWS::EC2::NatGateway
-    Properties:
-      AllocationId: !GetAtt NatEIP2.AllocationId
-      SubnetId: !Ref PublicSubnet2
-      Tags:
-        - Key: Name
-          Value: !Sub "${ProjectName}-nat-2"
 
   # Route Tables
   PublicRouteTable:
@@ -142,6 +106,7 @@ Resources:
       SubnetId: !Ref PublicSubnet2
       RouteTableId: !Ref PublicRouteTable
 
+  # Private Route Tables (NO NAT routes - completely private)
   PrivateRouteTable1:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -150,13 +115,6 @@ Resources:
         - Key: Name
           Value: !Sub "${ProjectName}-private-rt-1"
 
-  PrivateRoute1:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable1
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway1
-
   PrivateRouteTable2:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -164,13 +122,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-private-rt-2"
-
-  PrivateRoute2:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable2
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway2
 
   PrivateSubnet1RouteTableAssoc:
     Type: AWS::EC2::SubnetRouteTableAssociation
@@ -186,8 +137,6 @@ Resources:
 
   ################################################
   # Endpoint Security Group for Interface Endpoints
-  # Allows inbound from VPC CID range so ECS tasks in the VPC
-  # can reach the interface endpoints (ECR, Logs)
   ################################################
   VpcEndpointSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -199,18 +148,15 @@ Resources:
           FromPort: 0
           ToPort: 65535
           CidrIp: 10.0.0.0/16
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          FromPort: 0
-          ToPort: 65535
-          CidrIp: 0.0.0.0/0
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-vpce-sg"
 
   ################################################
-  # VPC Endpoints
+  # VPC Endpoints (Critical for private ECS communication)
   ################################################
+
+  # S3 Gateway Endpoint (for private S3 access from ECS)
   S3GatewayEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -220,10 +166,22 @@ Resources:
         - !Ref PrivateRouteTable1
         - !Ref PrivateRouteTable2
       VpcEndpointType: Gateway
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: "*"
+            Action:
+              - "s3:GetObject"
+              - "s3:PutObject"
+              - "s3:DeleteObject"
+              - "s3:ListBucket"
+            Resource: "*"
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-s3-vpce"
 
+  # ECR API Endpoint (for ECR API calls)
   EcrApiEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -235,10 +193,12 @@ Resources:
         - !Ref PrivateSubnet2
       SecurityGroupIds:
         - !Ref VpcEndpointSecurityGroup
+      PrivateDnsEnabled: true
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-ecr-api-vpce"
 
+  # ECR DKR Endpoint (for Docker registry operations)
   EcrDkrEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -250,10 +210,12 @@ Resources:
         - !Ref PrivateSubnet2
       SecurityGroupIds:
         - !Ref VpcEndpointSecurityGroup
+      PrivateDnsEnabled: true
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-ecr-dkr-vpce"
 
+  # CloudWatch Logs Endpoint (for ECS task logging)
   LogsEndpoint:
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -265,9 +227,44 @@ Resources:
         - !Ref PrivateSubnet2
       SecurityGroupIds:
         - !Ref VpcEndpointSecurityGroup
+      PrivateDnsEnabled: true
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-logs-vpce"
+
+  # STS Endpoint (required for ECR authentication)
+  StsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sts"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VpcEndpointSecurityGroup
+      PrivateDnsEnabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-sts-vpce"
+
+  # Secrets Manager Endpoint (for RDS credentials)
+  SecretsManagerEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcEndpointType: Interface
+      VpcId: !Ref VPC
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.secretsmanager"
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+      SecurityGroupIds:
+        - !Ref VpcEndpointSecurityGroup
+      PrivateDnsEnabled: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-secretsmanager-vpce"
 
 Outputs:
   VpcId:
@@ -281,10 +278,10 @@ Outputs:
   PrivateSubnet2:
     Value: !Ref PrivateSubnet2
   PrivateRouteTable1:
-    Description: "Private route table 1 ID (attach S3 gateway endpoint)"
+    Description: "Private route table 1 ID"
     Value: !Ref PrivateRouteTable1
   PrivateRouteTable2:
-    Description: "Private route table 2 ID (attach S3 gateway endpoint)"
+    Description: "Private route table 2 ID"
     Value: !Ref PrivateRouteTable2
   S3VPCEndpointId:
     Description: "S3 Gateway VPC Endpoint ID"
@@ -298,6 +295,12 @@ Outputs:
   LogsVpcEndpointId:
     Description: "CloudWatch Logs Interface VPC Endpoint ID"
     Value: !Ref LogsEndpoint
+  StsVpcEndpointId:
+    Description: "STS Interface VPC Endpoint ID"
+    Value: !Ref StsEndpoint
+  SecretsManagerVpcEndpointId:
+    Description: "Secrets Manager Interface VPC Endpoint ID"
+    Value: !Ref SecretsManagerEndpoint
   VpcEndpointSecurityGroupId:
     Description: "Security Group ID used by interface VPC endpoints"
     Value: !Ref VpcEndpointSecurityGroup
