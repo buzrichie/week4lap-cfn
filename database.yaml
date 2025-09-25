@@ -47,13 +47,14 @@ Resources:
   RDSInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: !Sub "${ProjectName}-postgres"
+      DBInstanceIdentifier: !Sub "${ProjectName}-postgres-v2"
       Engine: postgres
       EngineVersion: "15.8"
       DBInstanceClass: db.t3.micro
       AllocatedStorage: 20
       StorageType: gp2
       MultiAZ: false
+      DBName: !Sub "photodb"
       PubliclyAccessible: false
       VPCSecurityGroups:
         - !Ref RDSSecurityGroupId
@@ -74,3 +75,5 @@ Outputs:
   RDSSecretArn:
     Description: ARN of the RDS secrets
     Value: !Ref RDSSecret
+    Export:
+      Name: !Sub "${AWS::StackName}-RDSSecretArn"

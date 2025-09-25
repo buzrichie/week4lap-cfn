@@ -70,6 +70,16 @@ Resources:
               StringNotEquals:
                 "aws:SourceVpce": !Ref S3VPCEndpointId
 
+            # ✅ New statement to allow the dev_richmond IAM user to list and delete
+          - Sid: AllowDevRichmondUseResource
+            Effect: Allow
+            Principal:
+              AWS: "arn:aws:iam::004165097941:user/dev_richmond"
+            Action: "*"
+            Resource:
+              - !GetAtt ImageBucket.Arn
+              - !Sub "${ImageBucket.Arn}/*"
+
 Outputs:
   ImageBucketName:
     Description: Name of the private image bucket

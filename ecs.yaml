@@ -14,6 +14,8 @@ Parameters:
     Type: String
   TargetGroupBlueArn:
     Type: String
+  RDSSecretArn:
+    Type: String
   ContainerPort:
     Type: Number
     Default: 8080
@@ -42,6 +44,46 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        # Allow ECS tasks to read the DB credentials from Secrets Manager
+        - PolicyName: SecretRetrievalPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !Ref RDSSecretArn
+
+        # Allow ECS tasks to pull images from ECR
+        - PolicyName: ECRAccessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                  - ecr:GetRepositoryPolicy
+                Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}-repo
+
+        # Allow ECS tasks to fetch layers stored in S3 (ECR depends on this)
+        - PolicyName: ECRS3Access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - arn:aws:s3:::aws-ecr-*
+                  - arn:aws:s3:::aws-ecr-*/*
       RoleName: !Sub "${ProjectName}-ecsTaskExecutionRole"
       Tags:
         - Key: Name
@@ -61,6 +103,35 @@ Resources:
               Service: ecs-tasks.amazonaws.com
             Action: sts:AssumeRole
       RoleName: !Sub "${ProjectName}-ecsTaskRole"
+      Policies:
+        - PolicyName: AppAccessPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Secrets Manager permissions for DB credentials
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource: !Ref RDSSecretArn
+
+              # S3 permissions for storing images
+              - Effect: Allow
+                Action:
+                  - "s3:GetObject"
+                  - "s3:PutObject"
+                  - "s3:DeleteObject"
+                  - "s3:ListBucket"
+                Resource:
+                  - !Sub "arn:aws:s3:::${ProjectName}-images-${AWS::AccountId}"
+                  - !Sub "arn:aws:s3:::${ProjectName}-images-${AWS::AccountId}/*"
+
+              # RDS permissions if you need IAM DB auth (optional)
+              - Effect: Allow
+                Action:
+                  - "rds-db:connect"
+                Resource:
+                  - !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:*/admin"
       Tags:
         - Key: Name
           Value: !Sub "${ProjectName}-ecsTaskRole"
