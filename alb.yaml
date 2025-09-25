@@ -52,10 +52,10 @@ Resources:
     Properties:
       VpcId: !Ref VpcId
       Protocol: HTTP
-      Port: 80
+      Port: 8080
       TargetType: ip
-      HealthCheckProtocol: HTTP
-      HealthCheckPort: "80"
+      # HealthCheckProtocol: HTTP
+      # HealthCheckPort: "80"
       HealthCheckPath: /
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5
@@ -73,10 +73,10 @@ Resources:
     Properties:
       VpcId: !Ref VpcId
       Protocol: HTTP
-      Port: 80
+      Port: 8080
       TargetType: ip
-      HealthCheckProtocol: HTTP
-      HealthCheckPort: "80"
+      # HealthCheckProtocol: HTTP
+      # HealthCheckPort: "80"
       HealthCheckPath: /
       HealthCheckIntervalSeconds: 30
       HealthCheckTimeoutSeconds: 5

@@ -85,6 +85,7 @@ Resources:
         ALBSecurityGroupId: !GetAtt ALBStack.Outputs.ALBSecurityGroupId
         TargetGroupBlueArn: !GetAtt ALBStack.Outputs.TargetGroupBlueArn
         ECSServiceSecurityGroupId: !GetAtt SecurityGroupsStack.Outputs.ECSServiceSecurityGroupId
+        RDSSecretArn: !GetAtt RDSStack.Outputs.RDSSecretArn
         ContainerPort: !Ref ContainerPort
 
   RDSStack:
@@ -131,6 +132,7 @@ Resources:
         ContainerName: !GetAtt ECSStack.Outputs.ContainerName
         ContainerPort: !Ref ContainerPort
         TaskExecutionRoleArn: !GetAtt ECSStack.Outputs.TaskExecutionRoleArn
+        TaskRoleArn: !GetAtt ECSStack.Outputs.TaskRoleArn
         TargetGroupBlueName: !GetAtt ALBStack.Outputs.TargetGroupBlueName
         TargetGroupGreenName: !GetAtt ALBStack.Outputs.TargetGroupGreenName
 
