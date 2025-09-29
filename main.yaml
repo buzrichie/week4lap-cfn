@@ -32,12 +32,15 @@ Resources:
 
   SecurityGroupsStack:
     Type: AWS::CloudFormation::Stack
-    DependsOn: NetworkStack
+    DependsOn:
+      - NetworkStack
+      - ALBStack
     Properties:
       TemplateURL: https://week-4-lap-cfn.s3.eu-central-1.amazonaws.com/security-group.yaml
       Parameters:
         ProjectName: !Ref ProjectName
         VpcId: !GetAtt NetworkStack.Outputs.VpcId
+        ALBSecurityGroupId: !GetAtt ALBStack.Outputs.ALBSecurityGroupId
 
   ECRStack:
     Type: AWS::CloudFormation::Stack

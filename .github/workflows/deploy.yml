@@ -28,6 +28,9 @@ jobs:
           aws s3 cp ./ecs.yaml s3://${{ secrets.S3_BUCKET_NAME }}/ecs.yaml
           aws s3 cp ./oidc.yaml s3://${{ secrets.S3_BUCKET_NAME }}/oidc.yaml
           aws s3 cp ./pipeline.yaml s3://${{ secrets.S3_BUCKET_NAME }}/pipeline.yaml
+          aws s3 cp ./database.yaml s3://${{ secrets.S3_BUCKET_NAME }}/database.yaml
+          aws s3 cp ./security-group.yaml s3://${{ secrets.S3_BUCKET_NAME }}/security-group.yaml  
+          aws s3 cp ./storage.yaml s3://${{ secrets.S3_BUCKET_NAME }}/storage.yaml
 
       - name: Deploy the parent CloudFormation stack
         run: |
@@ -37,8 +40,8 @@ jobs:
             --no-fail-on-empty-changeset \
             --capabilities CAPABILITY_NAMED_IAM CAPABILITY_IAM \
             --parameter-overrides \
-              ProjectName=ecs-lab \
+              ProjectName=photolab \
               GitHubOwner=buzrichie \
-              GitHubRepo=week4lapapp \
+              GitHubRepo=week5photogallery \
               GitHubBranch=main \
               GitHubConnectionArn=${{ secrets.GIT_CONN }}
